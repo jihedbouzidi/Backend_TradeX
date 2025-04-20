@@ -4,9 +4,28 @@ header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// Désactiver l'affichage des erreurs PHP dans la réponse
+ini_set('display_errors', 0);
+error_reporting(0);
+
+// Fonction pour envoyer une réponse JSON
+function sendJsonResponse($status, $message, $data = null) {
+    http_response_code($status);
+    echo json_encode([
+        'status' => $status === 200 ? 'success' : 'error',
+        'message' => $message,
+        'data' => $data
+    ]);
+    exit;
+}
+
+// Fonction pour logger les erreurs
+function logError($message, $data = null) {
+    error_log("TradeX Error: " . $message);
+    if ($data) {
+        error_log("TradeX Error Data: " . print_r($data, true));
+    }
+}
 
 require 'config.php';
 
@@ -17,6 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
+        // Vérification des données requises
+        $requiredFields = ['utilisateur_id', 'nomPre', 'email', 'telephone'];
+        foreach ($requiredFields as $field) {
+            if (!isset($_POST[$field]) || empty($_POST[$field])) {
+                sendJsonResponse(400, "Le champ $field est requis");
+            }
+        }
+
         $conn->beginTransaction();
 
         // Récupération des données
@@ -24,23 +51,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $nomPre = $_POST['nomPre'];
         $email = $_POST['email'];
         $telephone = $_POST['telephone'];
-        $localisation = $_POST['localisation'];
-        $specialite = $_POST['specialite'];
-        $facebook = $_POST['facebook'];
-        $whatsapp = $_POST['whatsapp'];
-        $instagram = $_POST['instagram'];
+        $localisation = $_POST['localisation'] ?? '';
+        $specialite = $_POST['specialite'] ?? '';
+        $facebook = $_POST['facebook'] ?? '';
+        $whatsapp = $_POST['whatsapp'] ?? '';
+        $instagram = $_POST['instagram'] ?? '';
         $photo_profil_name = null;
+
+        // Validation de l'email
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            sendJsonResponse(400, "Format d'email invalide");
+        }
 
         // Gestion de la photo de profil
         if (isset($_FILES['photo_profil']) && $_FILES['photo_profil']['error'] === UPLOAD_ERR_OK) {
-            // Récupérer seulement le nom du fichier
-            $fileName = basename($_FILES['photo_profil']['name']);
-            $photo_profil_name = $fileName; // Stocker juste le nom du fichier
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            $detectedType = mime_content_type($_FILES['photo_profil']['tmp_name']);
             
-            // Supprimer l'ancienne photo référence si elle existe
-            $stmt = $conn->prepare("SELECT photo_profil FROM utilisateur WHERE id = ?");
-            $stmt->execute([$utilisateur_id]);
-            $oldPhoto = $stmt->fetchColumn();
+            if (!in_array($detectedType, $allowedTypes)) {
+                sendJsonResponse(400, 'Seuls les fichiers JPEG, PNG et GIF sont autorisés');
+            }
+
+            // Utiliser le nom original du fichier
+            $fileName = $_FILES['photo_profil']['name'];
+            
+            // Sauvegarder le chemin relatif dans la base de données
+            $photo_profil_name = 'public/' . $fileName;
         }
 
         // Gestion du mot de passe
@@ -52,12 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt->execute([$utilisateur_id]);
             $user = $stmt->fetch();
 
-            if (!password_verify($old_password, $user['mot_de_passe'])) {
-                throw new Exception('Ancien mot de passe incorrect.');
+            if (!$user || !password_verify($old_password, $user['mot_de_passe'])) {
+                sendJsonResponse(400, 'Ancien mot de passe incorrect');
             }
 
             if (strlen($new_password) < 8) {
-                throw new Exception('Le mot de passe doit contenir au moins 8 caractères.');
+                sendJsonResponse(400, 'Le mot de passe doit contenir au moins 8 caractères');
             }
 
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
@@ -77,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 instagram = :instagram";
 
         if ($photo_profil_name !== null) {
-            $sql .= ", photo_profil = :photo_profil";
+            $sql .= ", chemin_photo = :photo_profil";
         }
 
         $sql .= " WHERE id = :id";
@@ -99,28 +135,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $params[':photo_profil'] = $photo_profil_name;
         }
 
-        $stmt->execute($params);
+        if (!$stmt->execute($params)) {
+            throw new Exception("Erreur lors de la mise à jour du profil");
+        }
+
         $conn->commit();
 
         // Récupération des données mises à jour
         $stmt = $conn->prepare("SELECT * FROM utilisateur WHERE id = ?");
         $stmt->execute([$utilisateur_id]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        unset($user['mot_de_passe']);
+        
+        if (!$user) {
+            sendJsonResponse(404, "Utilisateur non trouvé");
+        }
 
-        echo json_encode([
-            'status' => 'success',
-            'message' => 'Profil mis à jour avec succès',
-            'user' => $user
-        ]);
+        unset($user['mot_de_passe']);
+        sendJsonResponse(200, 'Profil mis à jour avec succès', $user);
 
     } catch (Exception $e) {
         $conn->rollBack();
-        http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        logError("Exception lors de la mise à jour du profil", [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        sendJsonResponse(500, $e->getMessage());
     }
 } else {
-    http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => 'Méthode non autorisée']);
+    sendJsonResponse(405, 'Méthode non autorisée');
 }
 ?>
