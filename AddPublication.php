@@ -1,94 +1,124 @@
 <?php
+// Activation du reporting d'erreurs
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Headers CORS
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Content-Type: application/json");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Credentials: true");
 
-include 'config.php';
-
+// Gestion des requêtes OPTIONS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
-    exit;
+    exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = json_decode(file_get_contents('php://input'), true);
+// Inclusion de la configuration de la base de données
+include 'config.php';
 
-    if (json_last_error() !== JSON_ERROR_NONE) {
+// Fonction pour logger les erreurs
+function log_error($message) {
+    error_log("[AddPublication] " . $message);
+}
+
+try {
+    // Récupération des données JSON de la requête
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+
+    // Validation des données requises
+    if (!isset($data['utilisateur_id']) || !isset($data['type']) || !isset($data['description'])) {
         http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Données JSON invalides.']);
-        exit;
+        echo json_encode([
+            "status" => "error",
+            "message" => "Données manquantes: utilisateur_id, type ou description"
+        ]);
+        exit();
     }
 
-    try {
-        // Vérifier si l'utilisateur est connecté
-        if (!isset($data['utilisateur_id'])) {
-            throw new Exception('Utilisateur non connecté.');
-        }
+    // Préparation des données
+    $utilisateur_id = $data['utilisateur_id'];
+    $type_app = $data['type'];
+    $description = $data['description'];
+    $facebook = isset($data['facebookLink']) ? $data['facebookLink'] : null;
+    $whatsapp = isset($data['whatsappLink']) ? $data['whatsappLink'] : null;
+    $images = isset($data['images']) ? $data['images'] : [];
 
-        // Démarrer une transaction
-        $conn->beginTransaction();
-
-        // Insérer la publication
-        $sql = "INSERT INTO publication (utilisateur_id, type, titre, description, facebook, whatsapp) 
-                VALUES (:utilisateur_id, :type, :titre, :description, :facebook, :whatsapp)";
-        
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            'utilisateur_id' => $data['utilisateur_id'],
-            'type' => $data['type'] ?? 'default',
-            'titre' => $data['titre'] ?? 'Publication sans titre',
-            'description' => $data['description'],
-            'facebook' => $data['facebookLink'],
-            'whatsapp' => $data['whatsappLink']
-        ]);
-
-        $publication_id = $conn->lastInsertId();
-
-        // Insérer les images associées
-        if (isset($data['images']) && is_array($data['images'])) {
-            $sql = "INSERT INTO imagesPub (chemin, publication_id) VALUES (:chemin, :publication_id)";
-            $stmt = $conn->prepare($sql);
-
-            foreach ($data['images'] as $image) {
-                // Extraire uniquement le nom du fichier du chemin complet
-                $imageName = basename($image);
-                $stmt->execute([
-                    'chemin' => "/" . $imageName,
-                    'publication_id' => $publication_id
-                ]);
-            }
-        }
-
-        // Insérer dans VotrePub
-        $sql = "INSERT INTO VotrePub (utilisateur_id, publication_id) VALUES (:utilisateur_id, :publication_id)";
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([
-            'utilisateur_id' => $data['utilisateur_id'],
-            'publication_id' => $publication_id
-        ]);
-
-        // Valider la transaction
-        $conn->commit();
-
+    // Validation du type d'appareil
+    $allowed_types = ['pc', 'mobile'];
+    if (!in_array(strtolower($type_app), $allowed_types)) {
+        http_response_code(400);
         echo json_encode([
-            'status' => 'success',
-            'message' => 'Publication ajoutée avec succès.',
-            'publication_id' => $publication_id
+            "status" => "error",
+            "message" => "Type d'appareil invalide. Doit être 'pc' ou 'mobile'"
         ]);
-
-    } catch (Exception $e) {
-        // Annuler la transaction en cas d'erreur
-        $conn->rollBack();
-        
-        http_response_code(500);
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Erreur lors de l\'ajout de la publication: ' . $e->getMessage()
-        ]);
+        exit();
     }
-} else {
-    http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => 'Méthode non autorisée.']);
+
+    // Insertion de la publication dans la base de données
+    $sql = "INSERT INTO publication (utilisateur_id, type_app, description, facebook, whatsapp, date_publication) 
+            VALUES (:utilisateur_id, :type_app, :description, :facebook, :whatsapp, NOW())";
+    
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':utilisateur_id', $utilisateur_id);
+    $stmt->bindParam(':type_app', $type_app);
+    $stmt->bindParam(':description', $description);
+    $stmt->bindParam(':facebook', $facebook);
+    $stmt->bindParam(':whatsapp', $whatsapp);
+
+    if (!$stmt->execute()) {
+        throw new PDOException("Erreur lors de l'insertion de la publication");
+    }
+
+    // Récupération de l'ID de la publication nouvellement créée
+    $publication_id = $conn->lastInsertId();
+
+    // Insertion des images dans la table imagesPub
+    if (!empty($images)) {
+        $imagesSql = "INSERT INTO imagesPub (chemin, publication_id) VALUES (:chemin, :publication_id)";
+        $imagesStmt = $conn->prepare($imagesSql);
+
+        foreach ($images as $image) {
+            // Nettoyage du chemin de l'image (on garde seulement le nom du fichier avec extension)
+            $cleanPath = '/' . basename($image);
+            
+            $imagesStmt->bindParam(':chemin', $cleanPath);
+            $imagesStmt->bindParam(':publication_id', $publication_id);
+            $imagesStmt->execute();
+        }
+    }
+
+    // Ajout dans la table VotrePub
+    $votrePubSql = "INSERT INTO VotrePub (utilisateur_id, publication_id) VALUES (:utilisateur_id, :publication_id)";
+    $votrePubStmt = $conn->prepare($votrePubSql);
+    $votrePubStmt->bindParam(':utilisateur_id', $utilisateur_id);
+    $votrePubStmt->bindParam(':publication_id', $publication_id);
+    $votrePubStmt->execute();
+
+    // Réponse JSON
+    echo json_encode([
+        "status" => "success",
+        "message" => "Publication ajoutée avec succès",
+        "publication_id" => $publication_id
+    ]);
+
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode([
+        "status" => "error",
+        "message" => "Erreur de base de données: " . $e->getMessage()
+    ]);
+    log_error($e->getMessage());
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        "status" => "error",
+        "message" => "Erreur: " . $e->getMessage()
+    ]);
+    log_error($e->getMessage());
 }
 ?>

@@ -63,6 +63,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             sendJsonResponse(400, "Format d'email invalide");
         }
 
+        // Vérification si l'email existe déjà pour un autre utilisateur
+        $stmt = $conn->prepare("SELECT id FROM utilisateur WHERE email = ? AND id != ?");
+        $stmt->execute([$email, $utilisateur_id]);
+        $existingUser = $stmt->fetch();
+
+        if ($existingUser) {
+            sendJsonResponse(400, "Cet email est déjà utilisé par un autre utilisateur");
+        }
+
         // Gestion de la photo de profil
         if (isset($_FILES['photo_profil']) && $_FILES['photo_profil']['error'] === UPLOAD_ERR_OK) {
             $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
@@ -100,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt = $conn->prepare("UPDATE utilisateur SET mot_de_passe = ? WHERE id = ?");
             $stmt->execute([$hashed_password, $utilisateur_id]);
         }
+        
 
         // Mise à jour des données utilisateur
         $sql = "UPDATE utilisateur SET 
