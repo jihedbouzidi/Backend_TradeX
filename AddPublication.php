@@ -31,11 +31,11 @@ try {
     $data = json_decode($json, true);
 
     // Validation des données requises
-    if (!isset($data['utilisateur_id']) || !isset($data['type']) || !isset($data['description'])) {
+    if (!isset($data['utilisateur_id']) || !isset($data['type']) || !isset($data['description'])|| !isset($data['objectif'])) {
         http_response_code(400);
         echo json_encode([
             "status" => "error",
-            "message" => "Données manquantes: utilisateur_id, type ou description"
+            "message" => "Données manquantes: utilisateur_id, type , description ou objectif requis"
         ]);
         exit();
     }
@@ -44,6 +44,7 @@ try {
     $utilisateur_id = $data['utilisateur_id'];
     $type_app = $data['type'];
     $description = $data['description'];
+    $objectif = $data['objectif'];
     $facebook = isset($data['facebookLink']) ? $data['facebookLink'] : null;
     $whatsapp = isset($data['whatsappLink']) ? $data['whatsappLink'] : null;
     $images = isset($data['images']) ? $data['images'] : [];
@@ -60,13 +61,14 @@ try {
     }
 
     // Insertion de la publication dans la base de données
-    $sql = "INSERT INTO publication (utilisateur_id, type_app, description, facebook, whatsapp, date_publication) 
-            VALUES (:utilisateur_id, :type_app, :description, :facebook, :whatsapp, NOW())";
+    $sql = "INSERT INTO publication (utilisateur_id, type_app, description, objectif ,facebook, whatsapp, date_publication) 
+            VALUES (:utilisateur_id, :type_app, :description, :objectif, :facebook, :whatsapp, NOW())";
     
     $stmt = $conn->prepare($sql);
     $stmt->bindParam(':utilisateur_id', $utilisateur_id);
     $stmt->bindParam(':type_app', $type_app);
     $stmt->bindParam(':description', $description);
+    $stmt->bindParam(':objectif', $objectif);
     $stmt->bindParam(':facebook', $facebook);
     $stmt->bindParam(':whatsapp', $whatsapp);
 
