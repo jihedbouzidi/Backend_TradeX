@@ -51,47 +51,6 @@ try {
         $sql .= " AND p.type_app = :deviceType";
     }
 
-    // Filtres spécifiques pour PC
-    if (isset($params['type']) && $params['type'] === 'pc') {
-        if (!empty($params['disqueDurType'])) {
-            $sql .= " AND (p.description LIKE :disqueDurType)";
-        }
-        
-        if (!empty($params['disqueDurCapacite'])) {
-            $sql .= " AND (p.description LIKE :disqueDurCapacite)";
-        }
-        
-        if (!empty($params['ram'])) {
-            $sql .= " AND (p.description LIKE :ram)";
-        }
-        
-        if (!empty($params['carteGraphique'])) {
-            $sql .= " AND (p.description LIKE :carteGraphique)";
-        }
-        
-        if (!empty($params['processeur'])) {
-            $sql .= " AND (p.description LIKE :processeur)";
-        }
-    }
-
-    // Filtres spécifiques pour Mobile
-    if (isset($params['type']) && $params['type'] === 'mobile') {
-        if (!empty($params['camera'])) {
-            $sql .= " AND (p.description LIKE :camera)";
-        }
-        
-        if (!empty($params['stockage'])) {
-            $sql .= " AND (p.description LIKE :stockage)";
-        }
-        
-        if (!empty($params['ram'])) {
-            $sql .= " AND (p.description LIKE :ram)";
-        }
-        
-        if (!empty($params['batterie'])) {
-            $sql .= " AND (p.description LIKE :batterie)";
-        }
-    }
 
     // Tri par date de publication (du plus récent au plus ancien)
     $sql .= " ORDER BY p.date_publication DESC";
@@ -107,57 +66,6 @@ try {
 
     if (!empty($params['type']) && $params['type'] !== 'toutes') {
         $stmt->bindParam(':deviceType', $params['type']);
-    }
-
-    // Liaison des paramètres PC
-    if (isset($params['type']) && $params['type'] === 'pc') {
-        if (!empty($params['disqueDurType'])) {
-            $disqueDurParam = "%" . $params['disqueDurType'] . "%";
-            $stmt->bindParam(':disqueDurType', $disqueDurParam);
-        }
-        
-        if (!empty($params['disqueDurCapacite'])) {
-            $capaciteParam = "%" . $params['disqueDurCapacite'] . "%";
-            $stmt->bindParam(':disqueDurCapacite', $capaciteParam);
-        }
-        
-        if (!empty($params['ram'])) {
-            $ramParam = "%" . $params['ram'] . "%";
-            $stmt->bindParam(':ram', $ramParam);
-        }
-        
-        if (!empty($params['carteGraphique'])) {
-            $carteGraphiqueParam = "%" . $params['carteGraphique'] . "%";
-            $stmt->bindParam(':carteGraphique', $carteGraphiqueParam);
-        }
-        
-        if (!empty($params['processeur'])) {
-            $processeurParam = "%" . $params['processeur'] . "%";
-            $stmt->bindParam(':processeur', $processeurParam);
-        }
-    }
-
-    // Liaison des paramètres Mobile
-    if (isset($params['type']) && $params['type'] === 'mobile') {
-        if (!empty($params['camera'])) {
-            $cameraParam = "%" . $params['camera'] . "%";
-            $stmt->bindParam(':camera', $cameraParam);
-        }
-        
-        if (!empty($params['stockage'])) {
-            $stockageParam = "%" . $params['stockage'] . "%";
-            $stmt->bindParam(':stockage', $stockageParam);
-        }
-        
-        if (!empty($params['ram'])) {
-            $ramParam = "%" . $params['ram'] . "%";
-            $stmt->bindParam(':ram', $ramParam);
-        }
-        
-        if (!empty($params['batterie'])) {
-            $batterieParam = "%" . $params['batterie'] . "%";
-            $stmt->bindParam(':batterie', $batterieParam);
-        }
     }
 
     // Exécution de la requête
@@ -176,8 +84,6 @@ try {
         while($imageRow = $imagesStmt->fetch(PDO::FETCH_ASSOC)) {
             $images[] = $imageRow['chemin'];
         }
-        
-        // Formatage des données de publication
         $publication = array(
             "id" => $row['id'],
             "user" => array(
