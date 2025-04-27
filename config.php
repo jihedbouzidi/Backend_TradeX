@@ -1,4 +1,3 @@
-
 <?php
 $host = 'localhost';
 $dbname = 'TradeX_BD';
@@ -12,6 +11,3 @@ try {
     die("Erreur de connexion à la base de données : " . $e->getMessage());
 }
 ?>
-
-
-
