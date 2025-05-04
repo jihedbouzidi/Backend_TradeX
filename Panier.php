@@ -24,13 +24,12 @@ class Panier {
         throw new Exception("Erreur SQL: " . ($errorInfo[2] ?? 'Unknown error'));
     }
     public function delete() {
-        $query = "DELETE FROM " . $this->table_name . " 
+        $query = "DELETE FROM panier 
                  WHERE utilisateur_id = :utilisateur_id 
                  AND publication_id = :publication_id";
         
         $stmt = $this->conn->prepare($query);
         
-        // Nettoyage des entrées
         $this->utilisateur_id = htmlspecialchars(strip_tags($this->utilisateur_id));
         $this->publication_id = htmlspecialchars(strip_tags($this->publication_id));
         
@@ -38,12 +37,10 @@ class Panier {
         $stmt->bindParam(":publication_id", $this->publication_id, PDO::PARAM_INT);
         
         if ($stmt->execute()) {
-            // Vérifier si une ligne a été effectivement supprimée
             return $stmt->rowCount() > 0;
         }
         
-        $errorInfo = $stmt->errorInfo();
-        throw new Exception("Erreur SQL: " . ($errorInfo[2] ?? 'Erreur inconnue'));
+        throw new Exception("Erreur lors de l'exécution de la requête");
     }
     
     public function readByUser($utilisateur_id) {
@@ -66,3 +63,5 @@ class Panier {
     }
 }
 ?>
+
+

@@ -5,7 +5,6 @@ header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Max-Age: 3600");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// Gestion des requêtes OPTIONS pour CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -14,70 +13,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once 'config.php';
 require_once 'Panier.php';
 
-// Initialiser la réponse
+ini_set('display_errors', 0);
+error_reporting(0);
+
 $response = [
     'status' => 'error',
     'message' => 'Action non effectuée'
 ];
 
 try {
-    // Récupération des données
-    $input = file_get_contents('php://input');
-    if (empty($input)) {
-        throw new Exception("Aucune donnée reçue", 400);
+    // Récupérer les données JSON du corps de la requête
+    $json = file_get_contents('php://input');
+    $data = json_decode($json);
+
+    if (!$data || !isset($data->utilisateur_id) || !isset($data->publication_id)) {
+        throw new Exception("Données invalides", 400);
     }
 
-    $data = json_decode($input);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        throw new Exception("Données JSON invalides", 400);
-    }
+    $panier = new Panier($conn); // Utiliser $conn au lieu de $db
+    $panier->utilisateur_id = (int)$data->utilisateur_id;
+    $panier->publication_id = (int)$data->publication_id;
 
-    // Validation des données
-    $required = ['utilisateur_id', 'publication_id'];
-    foreach ($required as $field) {
-        if (!isset($data->$field)) {
-            throw new Exception("Champ manquant: $field", 400);
-        }
-        if (!is_numeric($data->$field)) {
-            throw new Exception("$field doit être numérique", 400);
-        }
-    }
-
-    $panier = new Panier($db);
-    $panier->utilisateur_id = $data->utilisateur_id;
-    $panier->publication_id = $data->publication_id;
-
-    // Vérifier d'abord si l'article existe dans le panier
-    $checkStmt = $db->prepare("SELECT id FROM panier WHERE utilisateur_id = ? AND publication_id = ?");
-    $checkStmt->execute([$panier->utilisateur_id, $panier->publication_id]);
-
-    if ($checkStmt->rowCount() === 0) {
+    // Suppression directe
+    if ($panier->delete()) {
         $response = [
             'status' => 'success',
-            'message' => 'Article non présent dans le panier'
+            'message' => 'Article supprimé du panier'
         ];
     } else {
-        // Suppression de l'article
-        if ($panier->delete()) {
-            $response = [
-                'status' => 'success',
-                'message' => 'Article supprimé du panier'
-            ];
-        } else {
-            throw new Exception("Échec de la suppression", 500);
-        }
+        throw new Exception("La suppression a échoué", 500);
     }
 
+} catch (PDOException $e) {
+    $response = [
+        'status' => 'error',
+        'message' => 'Erreur de base de données: ' . $e->getMessage(),
+        'code' => 500
+    ];
 } catch (Exception $e) {
     $response = [
         'status' => 'error',
         'message' => $e->getMessage(),
-        'code' => $e->getCode()
+        'code' => $e->getCode() ?: 500
     ];
-    http_response_code($e->getCode() ?: 500);
 }
 
-// Envoyer la réponse JSON
+http_response_code($response['code'] ?? 200);
 echo json_encode($response);
 exit();
 ?>
