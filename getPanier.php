@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once 'config.php'; // Utilise  fichier config.php 
+require_once 'config.php'; 
 require_once 'Panier.php';
 
 try {

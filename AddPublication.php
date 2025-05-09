@@ -93,14 +93,6 @@ try {
             $imagesStmt->execute();
         }
     }
-
-    // Ajout dans la table VotrePub
-    $votrePubSql = "INSERT INTO VotrePub (utilisateur_id, publication_id) VALUES (:utilisateur_id, :publication_id)";
-    $votrePubStmt = $conn->prepare($votrePubSql);
-    $votrePubStmt->bindParam(':utilisateur_id', $utilisateur_id);
-    $votrePubStmt->bindParam(':publication_id', $publication_id);
-    $votrePubStmt->execute();
-
     // Réponse JSON
     echo json_encode([
         "status" => "success",
