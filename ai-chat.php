@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Configuration OpenRouter
-$openRouterApiKey = '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';
+$openRouterApiKey = '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';
 $model = 'mistralai/mistral-7b-instruct'; // Modèle gratuit et performant
 
 $input = json_decode(file_get_contents('php://input'), true);
