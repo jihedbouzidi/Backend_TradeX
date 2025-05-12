@@ -5,7 +5,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once 'config.php';
+require_once '../configs/config.php';
 
 $utilisateur_id = $_GET['utilisateur_id'] ?? null;
 

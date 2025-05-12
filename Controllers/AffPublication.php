@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-include 'config.php';
+include '../configs/config.php';
 
 function log_error($message) {
     error_log("[AffPublication] " . $message);

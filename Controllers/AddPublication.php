@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Inclusion de la configuration de la base de données
-include 'config.php';
+include '../configs/config.php';
 
 // Fonction pour logger les erreurs
 function log_error($message) {

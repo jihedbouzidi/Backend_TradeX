@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
-require_once 'config.php';
+require_once '../configs/config.php';
 
 $response = ['status' => 'error', 'message' => 'Erreur inconnue'];
 

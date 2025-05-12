@@ -11,8 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once 'config.php'; 
-require_once 'Panier.php';
+require_once '../configs/config.php'; 
+require_once '../model/Panier.php';
 
 try {
     // Utilisation directe de la connexion $conn depuis config.php

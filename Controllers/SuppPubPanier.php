@@ -10,8 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-require_once 'config.php';
-require_once 'Panier.php';
+require_once '../configs/config.php';
+require_once '../model/Panier.php';
 
 ini_set('display_errors', 0);
 error_reporting(0);

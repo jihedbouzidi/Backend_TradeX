@@ -1,0 +1,21 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirige toutes les requêtes vers index.php (sauf fichiers existants)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [QSA,L]
+
+    # Désigne l'index comme entry point
+    DirectoryIndex index.php
+
+    # Active CORS pour l'API (ajustez selon vos besoins)
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# Désactive l'accès aux fichiers sensibles
+<FilesMatch "\.(env|log|htaccess)$">
+    Deny from all
+</FilesMatch>
